@@ -8,10 +8,20 @@
             <img src="{{ MEDIA_URL }}{{ stock.logo }}" width="80" class="mb-3">
         {% endif %}
         
+        <h6>Купить</h6>
         <form method="post" action="{% url 'stock:buy' stock.pk %}">
             {% csrf_token %}
             {{ form.as_p }}
             <button type="submit" class="btn btn-primary">Купить</button>
+        </form>
+        
+        <hr>
+        
+        <h6>Продать</h6>
+        <form method="post" action="{% url 'stock:sell' stock.pk %}">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button type="submit" class="btn btn-danger">Продать</button>
         </form>
         
         <a href="{% url 'stock:list' %}" class="btn btn-secondary mt-3">Назад к списку</a>

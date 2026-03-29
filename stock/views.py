@@ -56,7 +56,50 @@ def stock_buy(request, pk):
             acc_currency.amount = acc_currency.amount - buy_cost
             acc_currency.save()
             
-            # Очищаем кэш после покупки
+            cache.delete(f'currencies_{request.user.username}')
+            cache.delete(f'stocks_{request.user.username}')
+            
+            return redirect('stock:list')
+    
+    return render(request, 'stock.html', {'stock': stock, 'form': form})
+
+
+@login_required
+def stock_sell(request, pk):
+    if request.method != "POST":
+        return redirect('stock:detail', pk=pk)
+    
+    stock = get_object_or_404(Stock, pk=pk)
+    form = BuySellForm(request.POST)
+    
+    if form.is_valid():
+        amount = form.cleaned_data['amount']
+        price = form.cleaned_data['price']
+        sell_value = price * amount
+        
+        try:
+            acc_stock = AccountStock.objects.get(account=request.user.account, stock=stock)
+        except AccountStock.DoesNotExist:
+            form.add_error(None, f'У вас нет акций {stock.ticker}')
+            return render(request, 'stock.html', {'stock': stock, 'form': form})
+        
+        if acc_stock.amount < amount:
+            form.add_error(None, f'У вас только {acc_stock.amount} акций {stock.ticker}')
+        else:
+            acc_stock.amount = acc_stock.amount - amount
+            
+            if acc_stock.amount == 0:
+                acc_stock.delete()
+            else:
+                acc_stock.save()
+            
+            acc_currency, created = AccountCurrency.objects.get_or_create(
+                account=request.user.account, currency=stock.currency,
+                defaults={'amount': 0}
+            )
+            acc_currency.amount = acc_currency.amount + sell_value
+            acc_currency.save()
+            
             cache.delete(f'currencies_{request.user.username}')
             cache.delete(f'stocks_{request.user.username}')
             
