@@ -30,21 +30,7 @@ def stock_buy(request, pk):
         price = form.cleaned_data['price']
         buy_cost = price * amount
         
-        acc_stock, created = AccountStock.objects.get_or_create(
-            account=request.user.account, stock=stock,
-            defaults={'average_buy_cost': 0, 'amount': 0}
-        )
-        current_cost = acc_stock.average_buy_cost * acc_stock.amount
-        total_cost = current_cost + buy_cost
-        total_amount = acc_stock.amount + amount
-        
-        acc_stock.amount = total_amount
-        if total_amount > 0:
-            acc_stock.average_buy_cost = total_cost / total_amount
-        else:
-            acc_stock.average_buy_cost = 0
-        acc_stock.save()
-        
+        # Проверяем валютный счёт
         acc_currency, created = AccountCurrency.objects.get_or_create(
             account=request.user.account, currency=stock.currency,
             defaults={'amount': 0}
@@ -53,9 +39,27 @@ def stock_buy(request, pk):
         if acc_currency.amount < buy_cost:
             form.add_error(None, f'Недостаточно средств в валюте {stock.currency.sign}')
         else:
+            # Обновляем акции
+            acc_stock, created = AccountStock.objects.get_or_create(
+                account=request.user.account, stock=stock,
+                defaults={'average_buy_cost': 0, 'amount': 0}
+            )
+            current_cost = acc_stock.average_buy_cost * acc_stock.amount
+            total_cost = current_cost + buy_cost
+            total_amount = acc_stock.amount + amount
+            
+            acc_stock.amount = total_amount
+            if total_amount > 0:
+                acc_stock.average_buy_cost = total_cost / total_amount
+            else:
+                acc_stock.average_buy_cost = 0
+            acc_stock.save()
+            
+            # Списываем средства
             acc_currency.amount = acc_currency.amount - buy_cost
             acc_currency.save()
             
+            # Очищаем кэш
             cache.delete(f'currencies_{request.user.username}')
             cache.delete(f'stocks_{request.user.username}')
             
